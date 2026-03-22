@@ -11,20 +11,16 @@ export function AuthProvider({ children }) {
   const [subLoading, setSubLoading]     = useState(true)
 
   const fetchProfile = async (userId) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*, stores(*), subscriptions(*)')
-      .eq('id', userId)
-      .single()
+  // Dono queries parallel chalao — double fast!
+  const [profileRes, subRes] = await Promise.all([
+    supabase.from('profiles').select('*, stores(*)').eq('id', userId).single(),
+    supabase.from('subscriptions').select('*').eq('user_id', userId).maybeSingle()
+  ])
 
-    if (data) {
-      setProfile(data)
-      setSubscription(data.subscriptions?.[0] ?? null)
-    } else {
-      setSubscription(null)
-    }
-    setSubLoading(false)
-  }
+  if (profileRes.data) setProfile(profileRes.data)
+  setSubscription(subRes.data ?? null)
+  setSubLoading(false)
+}
 
   useEffect(() => {
     const init = async () => {
