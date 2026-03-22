@@ -1,7 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
-// Spinner shown while session is loading
 function Spinner() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -13,7 +12,6 @@ function Spinner() {
   )
 }
 
-// Requires authentication
 export function RequireAuth({ children }) {
   const { user, loading } = useAuth()
   const location = useLocation()
@@ -23,18 +21,22 @@ export function RequireAuth({ children }) {
   return children
 }
 
-// Requires active subscription
 export function RequireSubscription({ children }) {
-  const { user, loading, isActive } = useAuth()
+  const { user, loading, subLoading, isActive } = useAuth()
   const location = useLocation()
 
-  if (loading) return <Spinner />
+  // ✅ Dono loading states ka wait karo
+  if (loading || subLoading) return <Spinner />
+
+  // ✅ User nahi hai toh login
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+
+  // ✅ Subscription nahi hai toh pricing
   if (!isActive()) return <Navigate to="/pricing" replace />
+
   return children
 }
 
-// Redirect logged-in users away from auth pages
 export function RedirectIfAuth({ children }) {
   const { user, loading } = useAuth()
 

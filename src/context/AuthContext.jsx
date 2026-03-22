@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile]           = useState(null)
   const [subscription, setSubscription] = useState(null)
   const [loading, setLoading]           = useState(true)
+  const [subLoading, setSubLoading]     = useState(true)
 
   const fetchProfile = async (userId) => {
     const { data } = await supabase
@@ -19,18 +20,22 @@ export function AuthProvider({ children }) {
     if (data) {
       setProfile(data)
       setSubscription(data.subscriptions?.[0] ?? null)
+    } else {
+      setSubscription(null)
     }
+    setSubLoading(false)
   }
 
   useEffect(() => {
-    // ✅ async kiya — await ke liye
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user ?? null)
       if (session?.user) {
-        await fetchProfile(session.user.id) // ✅ await hai ab
+        await fetchProfile(session.user.id)
+      } else {
+        setSubLoading(false)
       }
-      setLoading(false) // ✅ profile aane KE BAAD
+      setLoading(false)
     }
     init()
 
@@ -42,6 +47,7 @@ export function AuthProvider({ children }) {
         } else {
           setProfile(null)
           setSubscription(null)
+          setSubLoading(false)
         }
       }
     )
@@ -88,7 +94,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, profile, subscription, loading,
+      user, profile, subscription, loading, subLoading,
       signUp, signIn, signInWithGoogle, signOut,
       isPro, isActive,
       refreshProfile: () => user && fetchProfile(user.id),
