@@ -1,35 +1,38 @@
-import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
 
-const stripe    = new Stripe(process.env.STRIPE_SECRET_KEY)
-const supabase  = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+import os
+import stripe
+from supabase import create_client
 
-export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') return res.status(200).end()
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+supabase = create_client(os.environ.get('VITE_SUPABASE_URL'), os.environ.get('SUPABASE_SERVICE_ROLE_KEY'))
 
-  try {
-    const { userId, returnUrl } = req.body
+async def handler(req, res):
+    if req.method == 'OPTIONS':
+        res.status_code = 200
+        return res
+    if req.method != 'POST':
+        res.status_code = 405
+        return {'error': 'Method not allowed'}
 
-    // Look up the Stripe customer ID from our DB
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('stripe_customer_id')
-      .eq('user_id', userId)
-      .maybeSingle()
+    try:
+        user_id = req.body.get('userId')
+        return_url = req.body.get('returnUrl')
 
-    if (!sub?.stripe_customer_id) {
-      return res.status(404).json({ error: 'No billing account found. Please subscribe first.' })
-    }
+        response = supabase.from_('subscriptions').select('stripe_customer_id').eq('user_id', user_id).maybe_single().execute()
+        sub = response.data
 
-    const session = await stripe.billingPortal.sessions.create({
-      customer:   sub.stripe_customer_id,
-      return_url: returnUrl || `${process.env.VITE_APP_URL}/dashboard/settings`,
-    })
+        if not sub or not sub.get('stripe_customer_id'):
+            res.status_code = 404
+            return {'error': 'No billing account found. Please subscribe first.'}
 
-    return res.status(200).json({ url: session.url })
-  } catch (err) {
-    console.error('[billing-portal]', err)
-    return res.status(500).json({ error: err.message })
-  }
-}
+        session = stripe.billing_portal.Session.create(
+            customer=sub['stripe_customer_id'],
+            return_url=return_url or f"{os.environ.get('VITE_APP_URL')}/dashboard/settings"
+        )
+
+        res.status_code = 200
+        return {'url': session.url}
+    except Exception as err:
+        print('[billing-portal]', err)
+        res.status_code = 500
+        return {'error': str(err)}
